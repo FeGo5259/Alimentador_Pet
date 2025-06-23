@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AlimentadorPet</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<div class="container mt-4">
+    <div class="header text-center">
+        <h1>🐾 AlimentadorPet</h1>
+        <button class="btn btn-outline-primary" onclick="conectarBluetooth()" id="btn-bt">🔗 Conectar Bluetooth</button>
+        <span id="status-bt">Não Conectado</span>
+    </div>
+
+    <div class="row mt-4">
+        <!-- Card Status -->
+        <div class="col-md-6">
+            <div class="card p-3">
+                <h5>Status do Container</h5>
+                <p><strong>🌡️ Temperatura:</strong> <span id="temperatura">---</span>°C</p>
+                <p><strong>📦 Container:</strong> <span id="container">---</span></p>
+            </div>
+        </div>
+
+        <!-- Card Horários -->
+        <div class="col-md-6">
+            <div class="card p-3">
+                <h5>Horários de Alimentação</h5>
+                <ul id="lista-horarios"></ul>
+
+                <button class="btn btn-success mb-2" onclick="toggleFormulario()">➕ Adicionar Novo Horário</button>
+
+                <div id="formulario-horario" class="card p-3" style="display:none;">
+                    <label class="mb-1">⏰ Horário:</label>
+                    <input type="time" id="input-horario" class="form-control mb-2">
+
+                    <button class="btn btn-secondary mb-2" onclick="toggleQuantidade()">🍚 Definir Quantidade de Comida</button>
+
+                    <div id="form-quantidade" style="display:none;">
+                        <label class="mb-1">Quantidade (gramas):</label>
+                        <input type="number" id="input-quantidade" class="form-control mb-2" min="1">
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary" onclick="salvarHorario()">Salvar</button>
+                        <button class="btn btn-danger" onclick="cancelarFormulario()">Cancelar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Card Controle -->
+    <div class="row mt-3">
+        <div class="col-md-12">
+            <div class="card p-3">
+                <h5>Controle Manual</h5>
+                <button class="btn btn-primary" onclick="dispensar()">🍽️ Dispensar Agora</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/app.js"></script>
+
+</body>
+</html>

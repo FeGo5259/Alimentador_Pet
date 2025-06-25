@@ -14,4 +14,6 @@ void desligarMotor();
 // Define o tamanho da porção em gramas a ser liberada.
 void setPorcao(int gramas);
 
+// Task dedicada para controlar o motor de passo de forma não-bloqueante.
+void taskMotor(void *pvParameters);
 #endif

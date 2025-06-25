@@ -4,37 +4,19 @@
 #include "bluetooth.h"
 
 extern QueueHandle_t xQueue;
+extern Estado estadoAtual;
+extern TickType_t tempoInicioLiberacao;
+extern const TickType_t duracaoLiberacao;
 
 #define NUM_ESTADOS 5
 #define NUM_EVENTOS 8
-
-enum Evento {
-  EVENTO_NENHUM = 0,
-  EVENTO_UMIDADE_ALTA,
-  EVENTO_UMIDADE_NORMAL,
-  EVENTO_NIVEL_BAIXO,
-  EVENTO_NIVEL_NORMAL,
-  EVENTO_BOTAO_MANUAL,
-  EVENTO_HORARIO,
-  EVENTO_PORCAO_LIBERADA
-};
-
-enum Acao {
-  NENHUMA_ACAO,
-  A01_LED_UMIDADE_ON,
-  A02_LED_UMIDADE_OFF,
-  A03_LED_NIVEL_ON,
-  A04_LED_NIVEL_OFF,
-  A05_LIGAR_MOTOR,
-  A06_DESLIGAR_MOTOR
-};
+TickType_t tempoInicioLiberacao = 0;
+const TickType_t duracaoLiberacao = pdMS_TO_TICKS(3000);
 
 int matriz_acao[NUM_ESTADOS][NUM_EVENTOS];
 int matriz_proximo_estado[NUM_ESTADOS][NUM_EVENTOS];
 
 Estado estadoAtual = STANDBY;
-TickType_t tempoInicioLiberacao;
-const TickType_t duracaoLiberacao = pdMS_TO_TICKS(5000);
 
 void inicializarMaquinaEstados() {
   for (int i = 0; i < NUM_ESTADOS; i++) {
@@ -120,9 +102,6 @@ void executarAcao(int acao) {
       enviarMensagem("Nível normalizado");
       break;
     case A05_LIGAR_MOTOR:
-      ligarMotor();
-      tempoInicioLiberacao = xTaskGetTickCount();
-      enviarMensagem("Liberando porção...");
       break;
     case A06_DESLIGAR_MOTOR:
       desligarMotor();

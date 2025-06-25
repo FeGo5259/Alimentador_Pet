@@ -1,5 +1,7 @@
 #include "horarios.h"
 #include <Arduino.h>
+#include "fsm.h"
+
 
 #define MAX_HORARIOS 5
 

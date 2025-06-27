@@ -6,8 +6,7 @@
 
 extern BluetoothSerial SerialBT;  // <- apenas declara
 
-void setupBluetooth();
-void processarComandoBluetooth(const String& comando);
+void processarComandoBluetooth(const String &comando);
 void bluetoothTask(void *param);
 void enviarMensagem(const String &msg);
 

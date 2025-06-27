@@ -102,6 +102,8 @@ void executarAcao(int acao) {
       enviarMensagem("Nível normalizado");
       break;
     case A05_LIGAR_MOTOR:
+      acionaMotor();
+      enviarMensagem("Liberando Porção");
       break;
     case A06_DESLIGAR_MOTOR:
       desligarMotor();
@@ -119,13 +121,6 @@ void taskMaquinaEstados(void *pvParameters) {
 
       executarAcao(acao);
       estadoAtual = proximo;
-    }
-
-    if (estadoAtual == LIBERANDO_PORCAO) {
-      if (xTaskGetTickCount() - tempoInicioLiberacao > duracaoLiberacao) {
-        int evento = EVENTO_PORCAO_LIBERADA;
-        xQueueSend(xQueue, &evento, 0);
-      }
     }
     vTaskDelay(pdMS_TO_TICKS(100));
   }

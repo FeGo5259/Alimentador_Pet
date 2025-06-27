@@ -1,45 +1,43 @@
 #include "horarios.h"
 #include <Arduino.h>
+#include "motor.h"
 #include "fsm.h"
+#include <esp_system.h>
+#include <time.h>
+#include <sys/time.h>
 
+struct tm data;
+String horariosRecebidos[10];
+String now[10];
+int numHorarios = 0;
 
-#define MAX_HORARIOS 5
-
-struct Horario {
-  uint8_t hora;
-  uint8_t minuto;
-};
-
-Horario horarios[MAX_HORARIOS];
-int totalHorarios = 0;
-
-void inicializarHorarios() {
-  // Exemplo fixo (pode ser configurado por Bluetooth depois)
-  horarios[0] = {8, 30};
-  horarios[1] = {12, 0};
-  horarios[2] = {18, 30};
-  totalHorarios = 3;
+// Simula hora atual fixa para testes
+void setupHora(){
+    timeval tv;
+    tv.tv_sec = 1750982400;
+    settimeofday(&tv, NULL);
+}
+String obterHoraAtual() {
+    time_t tt = time(NULL);
+    data = *gmtime(&tt);
+    char data_formatada[64];
+    strftime(data_formatada, 64, "%H%M", &data);
+    return String(data_formatada);
 }
 
-bool verificarHorarioAtual(uint8_t hora, uint8_t minuto) {
-  for (int i = 0; i < totalHorarios; i++) {
-    if (horarios[i].hora == hora && horarios[i].minuto == minuto) {
-      return true;
-    }
-  }
-  return false;
-}
+void taskVerificaHorario(void* parameter) {
+    TickType_t xLastWakeTime = xTaskGetTickCount();
+    for (;;) {
+        String horaAtual = obterHoraAtual();
+        //String horaAtual="2000";
+        for (int i = 0; i < numHorarios; i++) {
+            if (horaAtual == horariosRecebidos[i]) {
+                int evento = EVENTO_HORARIO;
+                xQueueSend(xQueue, &evento, 0);
+                break;
+            }
+        }
 
-void taskVerificaHorario(void *pvParameters) {
-  for (;;) {
-    time_t now = millis() / 1000;
-    uint8_t horaAtual = (now / 3600) % 24;
-    uint8_t minutoAtual = (now / 60) % 60;
-
-    if (verificarHorarioAtual(horaAtual, minutoAtual)) {
-      int evento = 6; // EVENTO_HORARIO
-      xQueueSend(xQueue, &evento, 0);
+        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(60000));
     }
-    vTaskDelay(pdMS_TO_TICKS(60000));
-  }
 }

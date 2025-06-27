@@ -1,8 +1,9 @@
 #include <Arduino.h>
 #include "leds.h"
 
-const int LED_UMIDADE = 27; // pino na esp, pode mudar 
-const int LED_NIVEL = 14; // pino na esp, pode mudar
+#define LED_UMIDADE 22
+#define LED_NIVEL 23
+
 
 void inicializarLeds() {
   pinMode(LED_UMIDADE, OUTPUT);

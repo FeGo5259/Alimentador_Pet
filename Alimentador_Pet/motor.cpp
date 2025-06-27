@@ -1,21 +1,21 @@
 #include <Arduino.h>
 #include "motor.h"
+#include "fsm.h" // Necessário para acessar a fila e os eventos
 
 // --- Configuração dos Pinos para o Motor de Passo de 4 Fios ---
-#define STEP_PIN_1 14
-#define STEP_PIN_2 27
-#define STEP_PIN_3 26
-#define STEP_PIN_4 25
-
-// --- Constantes do Sistema ---
-const int GRAMAS_POR_ROTACAO = 5;      // Quantidade de gramas que uma rotação completa dispensa.
-const int PASSOS_POR_ROTACAO = 32;   // Ajuste para o motor 
-const int TEMPO_LIBERACAO_CONSTANTE_MS = 10000; // Tempo total que o motor ficará ligado (10 segundos).
+#define STEP_PIN_1 16
+#define STEP_PIN_2 17
+#define STEP_PIN_3 5
+#define STEP_PIN_4 18
+#define BUTTON_PIN 2
 
 // --- Variáveis de Controle ---
-volatile bool motorLigado = false;
-static int porcaoAtualGramas = 20; // Porção padrão de 20g.
-static int delayPorPasso_ms = 2;   // Delay entre cada fase do passo. Será calculado dinamicamente.
+static int porcaoAtualGramas = 50; // Porção padrão de 20g
+#define delayPorPasso_ms  2   // Delay entre cada fase do passo
+static long tempoLiberacaoMs = 4000; // Tempo padrão (4s para 20g)
+
+// Disponibiliza a fila de eventos para esta tarefa
+extern QueueHandle_t xQueue;
 
 void inicializarMotor() {
   pinMode(STEP_PIN_1, OUTPUT);
@@ -24,36 +24,16 @@ void inicializarMotor() {
   pinMode(STEP_PIN_4, OUTPUT);
 }
 
-void setPorcao(int gramas) {
-  if (gramas > 0) {
-    porcaoAtualGramas = gramas;
+// Calcula o tempo necessário com base no peso desejado
+void setPorcao(int porcao) {
+  if (porcao > 0) {
+    porcaoAtualGramas = porcao;
+    //200ms por grama
+    tempoLiberacaoMs = porcaoAtualGramas * 200; 
   }
-}
-
-void ligarMotor() {
-  // --- Lógica de Cálculo da Velocidade ---
-  // Calcula o número total de rotações necessárias.
-  float totalRotacoes = (float)porcaoAtualGramas / GRAMAS_POR_ROTACAO;
-
-  // Calcula o número total de passos do motor.
-  int totalPassos = totalRotacoes * PASSOS_POR_ROTACAO;
-
-  // Como a sequência de passos tem 4 fases, calculamos o número total de "fases".
-  int totalFases = totalPassos * 4;
-
-  // Calcula o delay necessário entre cada fase para que o tempo total seja constante.
-  // Garante que o delay não seja zero para evitar divisão por zero e funcionamento incorreto.
-  if (totalFases > 0) {
-    delayPorPasso_ms = TEMPO_LIBERACAO_CONSTANTE_MS / totalFases;
-  } else {
-    delayPorPasso_ms = 2; // Um valor padrão caso a conta dê zero.
-  }
-
-  motorLigado = true;
 }
 
 void desligarMotor() {
-  motorLigado = false;
   // Desliga todas as bobinas para economizar energia e evitar aquecimento.
   digitalWrite(STEP_PIN_1, LOW);
   digitalWrite(STEP_PIN_2, LOW);
@@ -61,31 +41,48 @@ void desligarMotor() {
   digitalWrite(STEP_PIN_4, LOW);
 }
 
-// Tarefa dedicada que executa os passos do motor
-void taskMotor(void *pvParameters) {
-  for (;;) {
-    if (motorLigado) {
-      // Executa a sequência de 4 passos (full-step, uma fase por vez)
-      digitalWrite(STEP_PIN_1, HIGH);
-      digitalWrite(STEP_PIN_2, LOW);
-      digitalWrite(STEP_PIN_3, LOW);
-      digitalWrite(STEP_PIN_4, LOW);
-      vTaskDelay(pdMS_TO_TICKS(delayPorPasso_ms));
+// Função chamada pela FSM para iniciar o processo. Retorna imediatamente.
 
-      digitalWrite(STEP_PIN_1, LOW);
-      digitalWrite(STEP_PIN_2, HIGH);
-      vTaskDelay(pdMS_TO_TICKS(delayPorPasso_ms));
+void acionaMotor() {
+  
+  TickType_t tempoInicio = xTaskGetTickCount(); // Marca o tempo inicial
 
-      digitalWrite(STEP_PIN_2, LOW);
-      digitalWrite(STEP_PIN_3, HIGH);
-      vTaskDelay(pdMS_TO_TICKS(delayPorPasso_ms));
+  // Loop principal: gira o motor enquanto o tempo não tiver expirado
+  while ((xTaskGetTickCount() - tempoInicio) < pdMS_TO_TICKS(tempoLiberacaoMs)) {
+    // Executa a sequência de 4 passos
+    digitalWrite(STEP_PIN_1, LOW);
+    digitalWrite(STEP_PIN_2, LOW);
+    digitalWrite(STEP_PIN_3, LOW);
+    digitalWrite(STEP_PIN_4, HIGH);
+    vTaskDelay(pdMS_TO_TICKS(delayPorPasso_ms));
 
-      digitalWrite(STEP_PIN_3, LOW);
-      digitalWrite(STEP_PIN_4, HIGH);
-      vTaskDelay(pdMS_TO_TICKS(delayPorPasso_ms));
-    } else {
-      // Se o motor não estiver ligado, apenas aguarda para não consumir CPU.
-      vTaskDelay(pdMS_TO_TICKS(10));
-    }
+    digitalWrite(STEP_PIN_4, LOW);
+    digitalWrite(STEP_PIN_3, HIGH);
+    vTaskDelay(pdMS_TO_TICKS(delayPorPasso_ms));
+
+    digitalWrite(STEP_PIN_3, LOW);
+    digitalWrite(STEP_PIN_2, HIGH);
+    vTaskDelay(pdMS_TO_TICKS(delayPorPasso_ms));
+
+    digitalWrite(STEP_PIN_2, LOW);
+    digitalWrite(STEP_PIN_1, HIGH);
+    vTaskDelay(pdMS_TO_TICKS(delayPorPasso_ms));
+  }
+
+  // Envia o evento de conclusão para a máquina de estados UMA ÚNICA VEZ
+  int evento = EVENTO_PORCAO_LIBERADA;
+  xQueueSend(xQueue, &evento, 0);
+
+}
+
+void setupBotao(){
+  pinMode(BUTTON_PIN,INPUT);
+}
+
+void taskBotao(void *pvParameters){
+  int pressionado = digitalRead(BUTTON_PIN);
+  if (pressionado){
+    int evento = EVENTO_BOTAO_MANUAL;
+    xQueueSend(xQueue, &evento, 0);
   }
 }

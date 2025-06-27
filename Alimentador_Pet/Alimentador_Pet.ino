@@ -12,61 +12,89 @@
 #include "bluetooth.h"
 #include "horarios.h"
 
-QueueHandle_t xQueue;
-
 #define MAX_HORARIOS 10
 
-int quantidade = 0;
-bool jaDisparado[MAX_HORARIOS];
 
-String horariosRecebidos[10];
-int numHorarios = 0;
-int quantidadeRecebida = 0;
-
-void verificarHorarioTask(void *param) {
-    for (;;) {
-        struct tm timeinfo;
-        if (!getLocalTime(&timeinfo)) {
-            Serial.println("Erro ao obter hora");
-            vTaskDelay(5000 / portTICK_PERIOD_MS);
-            continue;
-        }
-
-        char horaAtual[6];
-        sprintf(horaAtual, "%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min);
-
-        for (int i = 0; i < numHorarios; i++) {
-            if (horariosRecebidos[i] == horaAtual) {
-                taskMotor(*quantidadeRecebida);
-                vTaskDelay(60000 / portTICK_PERIOD_MS);  // espera 1 minuto pra não repetir
-                break;
-            }
-        }
-
-        vTaskDelay(10000 / portTICK_PERIOD_MS);  // checa a cada 10s
-    }
-}
-
+// Variáveis globais
+QueueHandle_t xQueue;
 void setup() {
   Serial.begin(115200);
-
-  setupMotor();
+  
+  // Inicializações de hardware
+  if(!SerialBT.begin("AlimentadorPet")) {
+    Serial.println("Falha ao inicializar Bluetooth!");
+    while(1);
+  }
+  setupBotao();
+  setupHora();
+  inicializarMotor();
   inicializarSensores();
   inicializarLeds();
-  setupBluetooth();
-  inicializarHorarios();
   inicializarMaquinaEstados();
 
+  // Criação da fila e tarefas
   xQueue = xQueueCreate(10, sizeof(int));
   if (xQueue != NULL) {
-    xTaskCreate(taskMaquinaEstados, "FSM", 2048, NULL, 2, NULL);
-    xTaskCreate(taskVerificaSensores, "Sensores", 2048, NULL, 1, NULL);
-    xTaskCreate(bluetoothTask, "Bluetooth", 2048, NULL, 1, NULL);
-    xTaskCreate(taskVerificaHorario, "Horario", 2048, NULL, 1, NULL);
-    vTaskStartScheduler();
+    // Cria as tarefas com stacks e prioridades adequadas
+    xTaskCreatePinnedToCore(
+      taskMaquinaEstados,    // Função da tarefa
+      "FSM",                // Nome da tarefa
+      4096,                 // Tamanho do stack (aumentado para segurança)
+      NULL,                 // Parâmetros
+      2,                    // Prioridade
+      NULL,                 // Task handle
+      1                     // Core (0 ou 1)
+    );
+    
+    xTaskCreatePinnedToCore(
+      taskVerificaSensores,
+      "Sensores",
+      2048,
+      NULL,
+      1,                    // Prioridade menor que FSM
+      NULL,
+      1
+    );
+    
+    xTaskCreatePinnedToCore(
+      bluetoothTask,
+      "Bluetooth",
+      4096,                // Bluetooth pode precisar de mais stack
+      NULL,
+      2,                    // Alta prioridade como FSM
+      NULL,
+      0                     // Executa no outro core
+    );
+    
+    xTaskCreatePinnedToCore(
+      taskVerificaHorario,
+      "Horario",
+      2048,
+      NULL,
+      1,
+      NULL,
+      1
+    );
+
+    xTaskCreatePinnedToCore(
+      taskBotao,
+      "Botao",
+      2048,
+      NULL,
+      1,                    // Prioridade menor que FSM
+      NULL,
+      1
+    );
+    
+    Serial.println("Tarefas criadas com sucesso!");
   } else {
     Serial.println("Erro ao criar fila");
+    while(1);
   }
 }
 
-void loop() {}
+void loop() {
+  // O loop fica vazio porque tudo é tratado pelas tarefas
+  // Pode ser usado para debug ou tarefas de baixa prioridade
+  vTaskDelay(pdMS_TO_TICKS(1000)); // Libera a CPU por 1 segundo
+}

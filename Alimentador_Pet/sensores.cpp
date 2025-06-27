@@ -1,27 +1,35 @@
-#ifndef SENSORES_H
-#define SENSORES_H
-
-void inicializarSensores();
-bool umidadeAlto();     // retorna true se umidade > 50%
-bool nivelBaixo();      // retorna true se nível estiver abaixo do ideal
-void taskVerificaSensores(void *pvParameters);
-
-#endif
 #include <Arduino.h>
 #include "sensores.h"
 #include "fsm.h"
+#include <DHT.h>
+#include <DHT_U.h>
+#include <Adafruit_Sensor.h>
 
-const int PIN_SENSOR_OBSTACULO = 32;
-const int PIN_UMIDADE = 34;
+#define PIN_SENSOR_OBSTACULO 34
+#define DHTPIN 26
+#define DHTTYPE DHT11
+
+DHT dht(DHTPIN, DHTTYPE);
 
 void inicializarSensores() {
+  dht.begin();
   pinMode(PIN_SENSOR_OBSTACULO, INPUT);
-  pinMode(PIN_UMIDADE, INPUT);
+  pinMode(DHTPIN, INPUT);
 }
 
 bool umidadeAlto() {
-  int leitura = analogRead(PIN_UMIDADE);
-  return leitura > 2000; // ajuste conforme seu sensor
+  float h = dht.readHumidity();
+  //Serial.printf("Umidade Lida: %.1f%%\n", h);
+  
+  if (isnan(h)) {
+    Serial.println("Erro na leitura da umidade!");
+    return false;
+  }
+  
+  if (h > 30.0) {
+    return true;
+  }
+  return false;
 }
 
 // Retorna true se o nível estiver abaixo do desejado (ou seja, se a distância for maior)

@@ -15,5 +15,10 @@ void desligarMotor();
 void setPorcao(int gramas);
 
 // Task dedicada para controlar o motor de passo de forma não-bloqueante.
-void taskMotor(void *pvParameters);
+void acionaMotor();
+
+void taskBotao(void *pvParameters);
+
+void setupBotao();
+
 #endif

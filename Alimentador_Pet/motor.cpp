@@ -80,9 +80,15 @@ void setupBotao(){
 }
 
 void taskBotao(void *pvParameters){
-  int pressionado = digitalRead(BUTTON_PIN);
-  if (pressionado){
-    int evento = EVENTO_BOTAO_MANUAL;
-    xQueueSend(xQueue, &evento, 0);
+bool estadoAnterior = false;
+  for(;;){
+    bool pressionado = digitalRead(BUTTON_PIN);
+    if (pressionado && !estadoAnterior){
+      // Detectou transição de LOW → HIGH (borda de subida)
+      int evento = EVENTO_BOTAO_MANUAL;
+      xQueueSend(xQueue, &evento, 0);
+    }
+    estadoAnterior = pressionado;
+    vTaskDelay(pdMS_TO_TICKS(30));
   }
 }
